@@ -250,7 +250,7 @@ bool get_has_rssi(void *h) {
   RFNoCDevice *handler = (RFNoCDevice*) h;
   uhd_string_vector_handle rx_sensors;
   uhd_string_vector_make(&rx_sensors);
-  uhd_usrp_get_rx_sensor_names(handler->usrp, 0, &rx_sensors);
+  uhd_usrp_get_rx_sensor_names(handler->usrp, 0, &rx_sensors);//FIXME:Error in this
   bool ret = find_string(rx_sensors, "rssi");
   uhd_string_vector_free(&rx_sensors);
   return ret;
@@ -276,6 +276,7 @@ extern "C"
 #endif
 int rf_uhd_open(char *args, void **h)
 {
+  printf("Opening USRP......\n");// << std::endl;
   if (h) {
     *h = NULL;
 
@@ -376,12 +377,14 @@ int rf_uhd_open(char *args, void **h)
     }
     */
 
+    std::cout<<"Handler created, check rssi"<<std::endl;
     handler->has_rssi = get_has_rssi(handler);
     if (handler->has_rssi) {
       uhd_sensor_value_make_from_realnum(&handler->rssi_value, "rssi", 0, "dBm", "%f");
     }
 
     /* Initialize rx and tx stremers */
+    std::cout<<"Creating streamers"<<std::endl;
     uhd_rx_streamer_make(&handler->rx_stream);
     uhd_error error = uhd_usrp_get_rx_stream(handler->usrp, &stream_args, handler->rx_stream);
     if (error) {
@@ -394,6 +397,7 @@ int rf_uhd_open(char *args, void **h)
       fprintf(stderr, "Error opening TX stream: %d\n", error);
       return -1;
     }
+    std::cout<<"Created streamers"<<std::endl;
 
     uhd_rx_streamer_max_num_samps(handler->rx_stream, &handler->rx_nof_samples);
     uhd_tx_streamer_max_num_samps(handler->tx_stream, &handler->tx_nof_samples);
