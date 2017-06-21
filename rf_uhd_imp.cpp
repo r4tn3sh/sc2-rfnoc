@@ -10,17 +10,6 @@
 #include "rf_uhd_imp.h"
 #include "rf_uhd_imp.hpp"
 
-//TODO: Not commenting follwing functions result in linker error
-//rf_uhd_register_msg_handler_c
-//uhd_tx_metadata_set_end
-//uhd_tx_metadata_add_time_spec
-//uhd_tx_metadata_set_time_spec
-//uhd_tx_metadata_set_start
-//FIXME : This functions seem to be used in rf_uhd_imp.c as well
-//Unsure about the cause of linker error
-
-
-
 typedef struct {
   char *devname;
   uhd_usrp_handle usrp;
@@ -48,8 +37,14 @@ struct RFNoCDevice;
 RFNoCDevice::RFNoCDevice(char* args) {
   args_ = args;
   usrp_ = uhd::device3::make(args_);
+  // // FIXME: at this point uhd_usrp_make would have assigned a usrp_index to uhd_usrp_handle
+  // // Therefor following line is added assuming only one USRP is used
+  // usrp->usrp_index = 0;
+  // // TODO: Previous operation was not successful as the uhd_usrp (a struct) is not defined in 
+  // // one of the included header files. Defination is in a cpp file. Changing that would mean
+  // // changing uhd driver. Unsure if that is the direction we want to take
+
   radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", radio_id_);
-  // FIXME : radio_ctrl_ seems to be pointer to another pointer, therefore later part of the code needs to be changed accordingly
   radio_ctrl_ = usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(radio_ctrl_id_);
   radio_ctrl_->set_args(radio_args_);
 }
@@ -337,8 +332,8 @@ int rf_uhd_open(char *args, void **h)
     */
 
     /* Create UHD handler */
-    printf("Opening USRP with args: %s\n", handler->args_.c_str());//XXX: replaced by following line by Ratnesh
-    // printf("Opening USRP with args: %s\n", args);
+    printf("Opening USRP with args: %s\n", handler->args_.c_str());//
+
     //uhd_error error = uhd_usrp_make(&handler->usrp, args);
     /*
     if (error) {
@@ -373,7 +368,7 @@ int rf_uhd_open(char *args, void **h)
     // };
     uhd::device_addr_t stream_args_args;
     std::cout << "<---------Using Block ID : " << handler->radio_ctrl_id_.to_string() << std::endl;
-    stream_args_args["block_id"] = handler->radio_ctrl_id_.to_string(); //FIXME: Which value to use?
+    stream_args_args["block_id"] = handler->radio_ctrl_id_.to_string();
     uhd::stream_args_t stream_args("fc32","sc16");
     stream_args.args = stream_args_args;
 
@@ -479,10 +474,11 @@ double rf_uhd_set_rx_srate(void *h, double freq)
 {
   printf("rf_uhd_set_rx_srate - freq: %f\n",freq);
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  uhd_usrp_set_rx_rate(handler->usrp, freq, 0);
-  // handler->radio_ctrl_->set_rx_rate(freq);
-  uhd_usrp_get_rx_rate(handler->usrp, 0, &freq);
-  // freq = handler->radio_ctrl_->get_rx_rate();
+  // uhd_usrp_set_rx_rate(handler->usrp, freq, 0);
+  // uhd_usrp_get_rx_rate(handler->usrp, 0, &freq);
+  // TODO: Is there separate tx and rx sampling rate in radio_ctrl
+  handler->radio_ctrl_->set_rate(freq);
+  freq = handler->radio_ctrl_->get_rate();
   return freq;
 }
 
@@ -492,10 +488,11 @@ extern "C"
 double rf_uhd_set_tx_srate(void *h, double freq)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  uhd_usrp_set_tx_rate(handler->usrp, freq, 0);
-  // handler->radio_ctrl_->set_tx_rate(freq);
-  uhd_usrp_get_tx_rate(handler->usrp, 0, &freq);
-  // freq = handler->radio_ctrl_->get_tx_rate();
+  // uhd_usrp_set_tx_rate(handler->usrp, freq, 0);
+  // uhd_usrp_get_tx_rate(handler->usrp, 0, &freq);
+  // TODO: make following code usable
+  // handler->usrp_->set_tx_rate(freq);
+  // freq = handler->usrp_->get_tx_rate();
   handler->tx_rate = freq;
   return freq;
 }
@@ -508,8 +505,6 @@ double rf_uhd_set_rx_gain(void *h, double gain)
   RFNoCDevice *handler = (RFNoCDevice*) h;
   //uhd_usrp_set_rx_gain(handler->usrp, gain, 0, "");
   //uhd_usrp_get_rx_gain(handler->usrp, 0, "", &gain);
-  // XXX : Following part of the code needed to be modified becase of 
-  // radio_ctrl_ being pointer of pointer
   handler->radio_ctrl_->set_rx_gain(gain, handler->radio_chan_);
   gain = handler->radio_ctrl_->get_rx_gain(handler->radio_chan_);
   return gain;
@@ -596,8 +591,9 @@ extern "C"
 #endif
 void rf_uhd_get_time(void *h, time_t *secs, double *frac_secs) {
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  // handler->radio_ctrl_->get_time_now();
-  uhd_usrp_get_time_now(handler->usrp, 0, secs, frac_secs);
+  const uhd::time_spec_t t = handler->radio_ctrl_->get_time_now();
+  // TODO: copy the value to secs and frac_secs
+  // uhd_usrp_get_time_now(handler->usrp, 0, secs, frac_secs);
 }
 
 #ifdef __cplusplus
