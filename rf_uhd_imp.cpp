@@ -48,9 +48,9 @@ struct RFNoCDevice;
 RFNoCDevice::RFNoCDevice(char* args) {
   args_ = args;
   usrp_ = uhd::device3::make(args_);
-  radio_ctrl_id_ = new uhd::rfnoc::block_id_t(0, "Radio", radio_id_);
+  radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", radio_id_);
   // FIXME : radio_ctrl_ seems to be pointer to another pointer, therefore later part of the code needs to be changed accordingly
-  radio_ctrl_ = usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(*radio_ctrl_id_);
+  radio_ctrl_ = usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(radio_ctrl_id_);
   radio_ctrl_->set_args(radio_args_);
 }
 
@@ -363,13 +363,19 @@ int rf_uhd_open(char *args, void **h)
     */
     handler->devname = (char *) DEVNAME_X300;
     size_t channel = 0;
-    uhd_stream_args_t stream_args = {
-      .cpu_format = (char *) "fc32",
-      .otw_format = (char *) "sc16",
-      .args = (char *) "",
-      .channel_list = &channel,
-      .n_channels = 1
-    };
+    std::string streamargs="";
+    // uhd_stream_args_t stream_args = {
+    //   .cpu_format = (char *) "fc32",
+    //   .otw_format = (char *) "sc16",
+    //   .args = (char *) "",
+    //   .channel_list = &channel,
+    //   .n_channels = 1
+    // };
+    uhd::device_addr_t stream_args_args;
+    std::cout << "<---------Using Block ID : " << handler->radio_ctrl_id_.to_string() << std::endl;
+    stream_args_args["block_id"] = handler->radio_ctrl_id_.to_string(); //FIXME: Which value to use?
+    uhd::stream_args_t stream_args("sc16","sc16");
+    stream_args.args = stream_args_args;
 
     // Set external clock reference
     /*
@@ -387,20 +393,21 @@ int rf_uhd_open(char *args, void **h)
 
     /* Initialize rx and tx stremers */
     //FIXME: This method of creating stream does not seem to be compatible with rfnoc_fft_rx_to_file
-    std::cout<<"Creating streamers"<<std::endl;
-    uhd_rx_streamer_make(&handler->rx_stream);
-    uhd_error error = uhd_usrp_get_rx_stream(handler->usrp, &stream_args, handler->rx_stream);
-    if (error) {
-      fprintf(stderr, "Error opening RX stream: %d\n", error);
-      return -1;
-    }
-    uhd_tx_streamer_make(&handler->tx_stream);
-    error = uhd_usrp_get_tx_stream(handler->usrp, &stream_args, handler->tx_stream);
-    if (error) {
-      fprintf(stderr, "Error opening TX stream: %d\n", error);
-      return -1;
-    }
-    std::cout<<"Created streamers"<<std::endl;
+    // std::cout<<"Creating streamers"<<std::endl;
+    // uhd_rx_streamer_make(&handler->rx_stream);
+    // uhd_error error = uhd_usrp_get_rx_stream(handler->usrp, &stream_args, handler->rx_stream);
+    // if (error) {
+    //   fprintf(stderr, "Error opening RX stream: %d\n", error);
+    //   return -1;
+    // }
+    // uhd_tx_streamer_make(&handler->tx_stream);
+    // error = uhd_usrp_get_tx_stream(handler->usrp, &stream_args, handler->tx_stream);
+    // if (error) {
+    //   fprintf(stderr, "Error opening TX stream: %d\n", error);
+    //   return -1;
+    // }
+    // std::cout<<"Created streamers"<<std::endl;
+
     // -------------------------------------------------------------------
     //TODO : Following lines of codes are copied from rfnoc_fft_rx_to_file
     // UHD_MSG(status) << "Samples per packet: " << spp << std::endl;
@@ -410,17 +417,24 @@ int rf_uhd_open(char *args, void **h)
     // UHD_MSG(status) << "Using streamer args: " << stream_args.args.to_string() << std::endl;
     // uhd::rx_streamer::sptr rx_stream = usrp->get_rx_stream(stream_args);
     // -------------------------------------------------------------------
+    // FIXME: Following lines added by ratnesh. based on streamer creation described above
+    // std::cout << "Using streamer args: " << stream_args.args.to_string() << std::endl;
+    uhd::rx_streamer::sptr rx_stream = handler->usrp_->get_rx_stream(stream_args);
+    handler->rx_stream_ = rx_stream;
+    std::cout << "<---------Rx streamer created"<< std::endl;
+    handler->rx_nof_samples = handler->rx_stream_->get_max_num_samps();
+    std::cout << "<---------Max samples obtained"<< std::endl;
 
-    uhd_rx_streamer_max_num_samps(handler->rx_stream, &handler->rx_nof_samples);
-    uhd_tx_streamer_max_num_samps(handler->tx_stream, &handler->tx_nof_samples);
+    // uhd_rx_streamer_max_num_samps(handler->rx_stream, &handler->rx_nof_samples);
+    // uhd_tx_streamer_max_num_samps(handler->tx_stream, &handler->tx_nof_samples);
 
-    uhd_meta_range_make(&handler->rx_gain_range);
-    uhd_usrp_get_rx_gain_range(handler->usrp, "", 0, handler->rx_gain_range);
+    //uhd_meta_range_make(&handler->rx_gain_range);
+    //uhd_usrp_get_rx_gain_range(handler->usrp, "", 0, handler->rx_gain_range);
 
-    // Make metadata objects for RX/TX
-    uhd_rx_metadata_make(&handler->rx_md);
-    uhd_rx_metadata_make(&handler->rx_md_first);
-    uhd_tx_metadata_make(&handler->tx_md, false, 0, 0, false, false);
+    // // Make metadata objects for RX/TX
+    // uhd_rx_metadata_make(&handler->rx_md);
+    // uhd_rx_metadata_make(&handler->rx_md_first);
+    // uhd_tx_metadata_make(&handler->tx_md, false, 0, 0, false, false);
 
     return 0;
   } else {
