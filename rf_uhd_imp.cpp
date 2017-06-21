@@ -374,7 +374,7 @@ int rf_uhd_open(char *args, void **h)
     uhd::device_addr_t stream_args_args;
     std::cout << "<---------Using Block ID : " << handler->radio_ctrl_id_.to_string() << std::endl;
     stream_args_args["block_id"] = handler->radio_ctrl_id_.to_string(); //FIXME: Which value to use?
-    uhd::stream_args_t stream_args("sc16","sc16");
+    uhd::stream_args_t stream_args("fc32","sc16");
     stream_args.args = stream_args_args;
 
     // Set external clock reference
@@ -480,7 +480,9 @@ double rf_uhd_set_rx_srate(void *h, double freq)
   printf("rf_uhd_set_rx_srate - freq: %f\n",freq);
   RFNoCDevice *handler = (RFNoCDevice*) h;
   uhd_usrp_set_rx_rate(handler->usrp, freq, 0);
+  // handler->radio_ctrl_->set_rx_rate(freq);
   uhd_usrp_get_rx_rate(handler->usrp, 0, &freq);
+  // freq = handler->radio_ctrl_->get_rx_rate();
   return freq;
 }
 
@@ -491,7 +493,9 @@ double rf_uhd_set_tx_srate(void *h, double freq)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
   uhd_usrp_set_tx_rate(handler->usrp, freq, 0);
+  // handler->radio_ctrl_->set_tx_rate(freq);
   uhd_usrp_get_tx_rate(handler->usrp, 0, &freq);
+  // freq = handler->radio_ctrl_->get_tx_rate();
   handler->tx_rate = freq;
   return freq;
 }
@@ -592,6 +596,7 @@ extern "C"
 #endif
 void rf_uhd_get_time(void *h, time_t *secs, double *frac_secs) {
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  // handler->radio_ctrl_->get_time_now();
   uhd_usrp_get_time_now(handler->usrp, 0, secs, frac_secs);
 }
 
