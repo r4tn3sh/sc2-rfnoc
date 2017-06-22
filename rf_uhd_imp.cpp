@@ -36,7 +36,10 @@ struct RFNoCDevice;
 
 RFNoCDevice::RFNoCDevice(char* args) {
   args_ = args;
-  usrp_ = uhd::device3::make(args_);
+  // FIXME : is it a right idea to make the device3 object in the 
+  // constructor. We are creating multiple object of this class
+  // usrp_ = uhd::device3::make(args_);
+  //
   // // FIXME: at this point uhd_usrp_make would have assigned a usrp_index to uhd_usrp_handle
   // // Therefor following line is added assuming only one USRP is used
   // usrp->usrp_index = 0;
@@ -44,9 +47,9 @@ RFNoCDevice::RFNoCDevice(char* args) {
   // // one of the included header files. Defination is in a cpp file. Changing that would mean
   // // changing uhd driver. Unsure if that is the direction we want to take
 
-  radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", radio_id_);
-  radio_ctrl_ = usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(radio_ctrl_id_);
-  radio_ctrl_->set_args(radio_args_);
+  // radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", radio_id_);
+  // radio_ctrl_ = usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(radio_ctrl_id_);
+  // radio_ctrl_->set_args(radio_args_);
 }
 
 extern "C" 
@@ -137,40 +140,45 @@ char* rf_uhd_devname(void* h)
 #ifdef __cplusplus
 extern "C" 
 #endif
+//FIXME : r4tn3sh : following function relies heavily on uhd_usrp_handler
+//for reading the information about sensors.
 bool rf_uhd_rx_wait_lo_locked(void *h)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
 
-  uhd_string_vector_handle mb_sensors;
-  uhd_string_vector_handle rx_sensors;
-  char *sensor_name;
-  uhd_sensor_value_handle value_h;
-  uhd_string_vector_make(&mb_sensors);
-  uhd_string_vector_make(&rx_sensors);
-  uhd_sensor_value_make_from_bool(&value_h, "", true, "True", "False");
-  uhd_usrp_get_mboard_sensor_names(handler->usrp, 0, &mb_sensors);
-  uhd_usrp_get_rx_sensor_names(handler->usrp, 0, &rx_sensors);
+  // uhd_string_vector_handle mb_sensors;
+  // uhd_string_vector_handle rx_sensors;
+  // char *sensor_name;
+  // uhd_sensor_value_handle value_h;
+  // uhd_string_vector_make(&mb_sensors);
+  // uhd_string_vector_make(&rx_sensors);
+  // uhd_sensor_value_make_from_bool(&value_h, "", true, "True", "False");
+  // uhd_usrp_get_mboard_sensor_names(handler->usrp, 0, &mb_sensors);
+  // uhd_usrp_get_rx_sensor_names(handler->usrp, 0, &rx_sensors);
 
-  if (find_string(rx_sensors, "lo_locked")) {
-    sensor_name = (char *) "lo_locked";
-  } else if (find_string(mb_sensors, "ref_locked")) {
-    sensor_name = (char *) "ref_locked";
-  } else {
-    sensor_name = NULL;
-  }
+  // if (find_string(rx_sensors, "lo_locked")) {
+  //   sensor_name = (char *) "lo_locked";
+  // } else if (find_string(mb_sensors, "ref_locked")) {
+  //   sensor_name = (char *) "ref_locked";
+  // } else {
+  //   sensor_name = NULL;
+  // }
 
-  double report = 0.0;
-  while (!isLocked((rf_uhd_handler_t *)handler, sensor_name, &value_h) && report < 30.0) {
-    report += 0.1;
-    usleep(1000);
-  }
+  // double report = 0.0;
+  // while (!isLocked((rf_uhd_handler_t *)handler, sensor_name, &value_h) && report < 30.0) {
+  //   report += 0.1;
+  //   usleep(1000);
+  // }
 
-  bool val = isLocked((rf_uhd_handler_t *)handler, sensor_name, &value_h);
+  // bool val = isLocked((rf_uhd_handler_t *)handler, sensor_name, &value_h);
 
-  uhd_string_vector_free(&mb_sensors);
-  uhd_string_vector_free(&rx_sensors);
-  uhd_sensor_value_free(&value_h);
+  // uhd_string_vector_free(&mb_sensors);
+  // uhd_string_vector_free(&rx_sensors);
+  // uhd_sensor_value_free(&value_h);
 
+  // TODO: r4tn3sh : find correct solution
+  bool val = true;
+  usleep(1000);
   return val;
 }
 
@@ -301,7 +309,16 @@ int rf_uhd_open(char *args, void **h)
     //  args = "";
     //}
     handler->devname = NULL;
-    // uhd::rfnoc::graph::sptr rx_graph = usrp->create_graph("srslte_rfnoc_rx"); //XXX: replaced by following line by Ratnesh
+    // XXX : r4tn3sh : moved the USRP object creation here, in order to 
+    // avoid creating multiple usrp objects from constructor 
+    printf("<---------Opening USRP with args: %s\n", handler->args_.c_str());//
+    handler->usrp_ = uhd::device3::make(handler->args_);
+    handler->radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", handler->radio_id_);
+    handler->radio_ctrl_ = handler->usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(handler->radio_ctrl_id_);
+    handler->radio_ctrl_->set_args(handler->radio_args_);
+    handler->radio_chan_ = 0;
+    printf("<---------Opening USRP with args: %s is successful\n", handler->args_.c_str());//
+
     uhd::rfnoc::graph::sptr rx_graph = handler->usrp_->create_graph("srslte_rfnoc_rx");
 
     /* If device type or name not given in args, choose a B200 */
@@ -332,7 +349,13 @@ int rf_uhd_open(char *args, void **h)
     */
 
     /* Create UHD handler */
-    printf("Opening USRP with args: %s\n", handler->args_.c_str());//
+
+    // //XXX r4tn3sh: attempted to assign usrp_index
+    // uhd_error error = uhd_usrp_assign_index(&handler->usrp, 0);
+    // if (error) {
+    //   fprintf(stderr, "Error assigning index UHD: code %d\n", error);
+    //   return -1;
+    // }
 
     //uhd_error error = uhd_usrp_make(&handler->usrp, args);
     /*
@@ -379,8 +402,8 @@ int rf_uhd_open(char *args, void **h)
     }
     */
 
-    //FIXME:following function results in error. But do we need this? commenting!
-    // std::cout<<"Handler created with devname "<< handler->devname << ", check rssi"<<std::endl;
+    // //FIXME:following function results in error. But do we need this? commenting!
+    // std::cout<<"<---------Handler created with devname "<< handler->devname << ", check rssi"<<std::endl;
     // handler->has_rssi = get_has_rssi(handler);
     // if (handler->has_rssi) {
     //   uhd_sensor_value_make_from_realnum(&handler->rssi_value, "rssi", 0, "dBm", "%f");
@@ -403,22 +426,15 @@ int rf_uhd_open(char *args, void **h)
     // }
     // std::cout<<"Created streamers"<<std::endl;
 
+
     // -------------------------------------------------------------------
-    //TODO : Following lines of codes are copied from rfnoc_fft_rx_to_file
-    // UHD_MSG(status) << "Samples per packet: " << spp << std::endl;
-    // uhd::stream_args_t stream_args(format, "sc16"); // We should read the wire format from the blocks
-    // stream_args.args = streamer_args;
-    // stream_args.args["spp"] = boost::lexical_cast<std::string>(spp);
-    // UHD_MSG(status) << "Using streamer args: " << stream_args.args.to_string() << std::endl;
-    // uhd::rx_streamer::sptr rx_stream = usrp->get_rx_stream(stream_args);
-    // -------------------------------------------------------------------
-    // FIXME: Following lines added by ratnesh. based on streamer creation described above
+    // FIXME: r4tn3sh : Streamer creation  
     // std::cout << "Using streamer args: " << stream_args.args.to_string() << std::endl;
     uhd::rx_streamer::sptr rx_stream = handler->usrp_->get_rx_stream(stream_args);
     handler->rx_stream_ = rx_stream;
     std::cout << "<---------Rx streamer created"<< std::endl;
     handler->rx_nof_samples = handler->rx_stream_->get_max_num_samps();
-    std::cout << "<---------Max samples obtained"<< std::endl;
+    std::cout << "<---------Max samples obtained for rx buffer"<< std::endl;
 
     // uhd_rx_streamer_max_num_samps(handler->rx_stream, &handler->rx_nof_samples);
     // uhd_tx_streamer_max_num_samps(handler->tx_stream, &handler->tx_nof_samples);
@@ -472,8 +488,8 @@ extern "C"
 #endif
 double rf_uhd_set_rx_srate(void *h, double freq)
 {
-  printf("rf_uhd_set_rx_srate - freq: %f\n",freq);
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  std::cout << "<---------setting Rx sampling rate : "<<freq<< std::endl;
   // uhd_usrp_set_rx_rate(handler->usrp, freq, 0);
   // uhd_usrp_get_rx_rate(handler->usrp, 0, &freq);
   // TODO: Is there separate tx and rx sampling rate in radio_ctrl
@@ -488,6 +504,7 @@ extern "C"
 double rf_uhd_set_tx_srate(void *h, double freq)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  std::cout << "<---------setting Tx sampling rate : "<<freq<< std::endl;
   // uhd_usrp_set_tx_rate(handler->usrp, freq, 0);
   // uhd_usrp_get_tx_rate(handler->usrp, 0, &freq);
   // TODO: make following code usable
@@ -503,6 +520,8 @@ extern "C"
 double rf_uhd_set_rx_gain(void *h, double gain)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  std::cout << "<---------USRP with chan : "<< handler->radio_chan_<<std::endl;//
+  std::cout << "<---------setting Rx gain : "<< gain<< std::endl;
   //uhd_usrp_set_rx_gain(handler->usrp, gain, 0, "");
   //uhd_usrp_get_rx_gain(handler->usrp, 0, "", &gain);
   handler->radio_ctrl_->set_rx_gain(gain, handler->radio_chan_);
@@ -516,6 +535,7 @@ extern "C"
 double rf_uhd_set_tx_gain(void *h, double gain)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  std::cout << "<---------setting Tx gain : "<< gain<< std::endl;
   //uhd_usrp_set_tx_gain(handler->usrp, gain, 0, "");
   //uhd_usrp_get_tx_gain(handler->usrp, 0, "", &gain);
   handler->radio_ctrl_->set_tx_gain(gain, handler->radio_chan_);
@@ -529,6 +549,7 @@ extern "C"
 double rf_uhd_get_rx_gain(void *h)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  std::cout << "<---------Getting Rx gain"<< std::endl;
   double gain;
   //uhd_usrp_get_rx_gain(handler->usrp, 0, "", &gain);
   gain = handler->radio_ctrl_->get_rx_gain(handler->radio_chan_);
@@ -541,6 +562,7 @@ extern "C"
 double rf_uhd_get_tx_gain(void *h)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  std::cout << "<---------Getting Tx gain"<< std::endl;
   double gain;
   //uhd_usrp_get_tx_gain(handler->usrp, 0, "", &gain);
   gain = handler->radio_ctrl_->get_tx_gain(handler->radio_chan_);
@@ -559,6 +581,8 @@ double rf_uhd_set_rx_freq(void *h, double freq)
   //};
   //uhd_tune_result_t tune_result;
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  uhd::tune_request_t tune_request(freq);
+  std::cout << "<---------setting Rx freq : "<< freq << std::endl;
   //uhd_usrp_set_rx_freq(handler->usrp, &tune_request, 0, &tune_result);
   //uhd_usrp_get_rx_freq(handler->usrp, 0, &freq);
   handler->radio_ctrl_->set_rx_frequency(freq, handler->radio_chan_);
@@ -578,6 +602,7 @@ double rf_uhd_set_tx_freq(void *h, double freq)
   //};
   //uhd_tune_result_t tune_result;
   RFNoCDevice *handler = (RFNoCDevice*) h;
+  std::cout << "<---------setting Tx freq : "<< freq<< std::endl;
   //uhd_usrp_set_tx_freq(handler->usrp, &tune_request, 0, &tune_result);
   //uhd_usrp_get_tx_freq(handler->usrp, 0, &freq);
   handler->radio_ctrl_->set_tx_frequency(freq, handler->radio_chan_);
