@@ -12,8 +12,14 @@ public:
   size_t radio_id_=0;
   size_t radio_chan_;
   uhd::device3::sptr usrp_;
+
   uhd::rfnoc::block_id_t radio_ctrl_id_;
   uhd::rfnoc::radio_ctrl::sptr radio_ctrl_;
+
+  // FIXME: simply adding following variables result in seg fault
+  // uhd::rfnoc::block_id_t ddc_ctrl_id_;
+  // uhd::rfnoc::source_block_ctrl_base::sptr ddc_ctrl_;
+  
   uhd::rx_streamer::sptr rx_stream_;
 
   char *devname;

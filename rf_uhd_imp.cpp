@@ -309,17 +309,35 @@ int rf_uhd_open(char *args, void **h)
     //  args = "";
     //}
     handler->devname = NULL;
+    uhd::device_addr_t stream_args_args;
+    // ------------------------------------------------------------
     // XXX : r4tn3sh : moved the USRP object creation here, in order to 
     // avoid creating multiple usrp objects from constructor 
-    printf("<---------Opening USRP with args: %s\n", handler->args_.c_str());//
+    std::cout << boost::format("<---------Opening USRP with args: %s")% handler->args_.c_str()<< std::endl;
     handler->usrp_ = uhd::device3::make(handler->args_);
     handler->radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", handler->radio_id_);
     handler->radio_ctrl_ = handler->usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(handler->radio_ctrl_id_);
     handler->radio_ctrl_->set_args(handler->radio_args_);
-    handler->radio_chan_ = 0;
-    printf("<---------Opening USRP with args: %s is successful\n", handler->args_.c_str());//
+    handler->radio_chan_ = 0; //TODO: receive it from somewhere!
+    std::cout << boost::format("<---------Opening USRP with args: %s is successful, rate = %f")% handler->args_.c_str() % handler->radio_ctrl_->get_rate()<< std::endl;
 
     uhd::rfnoc::graph::sptr rx_graph = handler->usrp_->create_graph("srslte_rfnoc_rx");
+
+    // // ------------------------------------------------------------
+    // // XXX : r4tn3sh : DDC and other rfnoc blocks are configured here
+    // handler->ddc_ctrl_id_ = uhd::rfnoc::block_id_t(0, "DDC", 0);
+
+    // handler->ddc_ctrl_ = handler->usrp_->get_block_ctrl<uhd::rfnoc::source_block_ctrl_base>(handler->ddc_ctrl_id_);
+
+    // std::string ddc_args = "";
+    // handler->ddc_ctrl_->set_args(uhd::device_addr_t(ddc_args));
+
+    // std::cout << "Connecting " << handler->radio_ctrl_id_ << " ==> " << handler->ddc_ctrl_->get_block_id() << std::endl;    
+    // rx_graph->connect(handler->radio_ctrl_id_, handler->radio_chan_, handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT);
+    // stream_args_args["block_id"] = handler->ddc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
+    // std::cout << "<---------Using DDC ID : " << handler->ddc_ctrl_->get_block_id().to_string() << std::endl;
+    // // ------------------------------------------------------------
+
 
     /* If device type or name not given in args, choose a B200 */
     /*
@@ -350,7 +368,7 @@ int rf_uhd_open(char *args, void **h)
 
     /* Create UHD handler */
 
-    // //XXX r4tn3sh: attempted to assign usrp_index
+    // //XXX r4tn3sh: attempted to assign usrp_index, FAILED
     // uhd_error error = uhd_usrp_assign_index(&handler->usrp, 0);
     // if (error) {
     //   fprintf(stderr, "Error assigning index UHD: code %d\n", error);
@@ -389,7 +407,6 @@ int rf_uhd_open(char *args, void **h)
     //   .channel_list = &channel,
     //   .n_channels = 1
     // };
-    uhd::device_addr_t stream_args_args;
     std::cout << "<---------Using Block ID : " << handler->radio_ctrl_id_.to_string() << std::endl;
     stream_args_args["block_id"] = handler->radio_ctrl_id_.to_string();
     uhd::stream_args_t stream_args("fc32","sc16");
@@ -428,13 +445,13 @@ int rf_uhd_open(char *args, void **h)
 
 
     // -------------------------------------------------------------------
-    // FIXME: r4tn3sh : Streamer creation  
+    // FIXME: r4tn3sh : Streamer creation is not completed 
     // std::cout << "Using streamer args: " << stream_args.args.to_string() << std::endl;
     uhd::rx_streamer::sptr rx_stream = handler->usrp_->get_rx_stream(stream_args);
     handler->rx_stream_ = rx_stream;
     std::cout << "<---------Rx streamer created"<< std::endl;
     handler->rx_nof_samples = handler->rx_stream_->get_max_num_samps();
-    std::cout << "<---------Max samples obtained for rx buffer"<< std::endl;
+    std::cout << boost::format("<---------Max samples obtained for rx buffer is %d") % handler->rx_nof_samples << std::endl;
 
     // uhd_rx_streamer_max_num_samps(handler->rx_stream, &handler->rx_nof_samples);
     // uhd_tx_streamer_max_num_samps(handler->tx_stream, &handler->tx_nof_samples);
@@ -489,7 +506,9 @@ extern "C"
 double rf_uhd_set_rx_srate(void *h, double freq)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  std::cout << "<---------setting Rx sampling rate : "<<freq<< std::endl;
+  // size_t factor = (size_t)200000000/freq;
+  // freq = 200000000.0/(float)factor;
+  // std::cout << boost::format("<---------setting Rx sampling rate : %f and factor: %d") % freq % factor << std::endl;
   // uhd_usrp_set_rx_rate(handler->usrp, freq, 0);
   // uhd_usrp_get_rx_rate(handler->usrp, 0, &freq);
   // TODO: Is there separate tx and rx sampling rate in radio_ctrl
