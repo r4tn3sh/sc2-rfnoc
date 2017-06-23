@@ -317,26 +317,35 @@ int rf_uhd_open(char *args, void **h)
     handler->usrp_ = uhd::device3::make(handler->args_);
     handler->radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", handler->radio_id_);
     handler->radio_ctrl_ = handler->usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(handler->radio_ctrl_id_);
-    handler->radio_ctrl_->set_args(handler->radio_args_);
+    handler->radio_ctrl_->set_args(handler->radio_args_);//TODO:radio_args is empty now
     handler->radio_chan_ = 0; //TODO: receive it from somewhere!
     std::cout << boost::format("<---------Opening USRP with args: %s is successful, rate = %f")% handler->args_.c_str() % handler->radio_ctrl_->get_rate()<< std::endl;
 
     uhd::rfnoc::graph::sptr rx_graph = handler->usrp_->create_graph("srslte_rfnoc_rx");
 
-    // // ------------------------------------------------------------
-    // // XXX : r4tn3sh : DDC and other rfnoc blocks are configured here
+    // ------------------------------------------------------------
+    // XXX : r4tn3sh : DDC and other rfnoc blocks are configured here
+    // NOTE: list of all args for rfnoc blocks can be found in xml file at uhd/host/include/uhd/rfnoc/blocks/
+
     // handler->ddc_ctrl_id_ = uhd::rfnoc::block_id_t(0, "DDC", 0);
+    std::string ddc_id("0/DDC_0");
 
-    // handler->ddc_ctrl_ = handler->usrp_->get_block_ctrl<uhd::rfnoc::source_block_ctrl_base>(handler->ddc_ctrl_id_);
+    handler->ddc_ctrl_ = handler->usrp_->get_block_ctrl<uhd::rfnoc::source_block_ctrl_base>(ddc_id);
 
-    // std::string ddc_args = "";
-    // handler->ddc_ctrl_->set_args(uhd::device_addr_t(ddc_args));
+    //std::string ddc_args = "input_rate 200000000, output_rate 5882352.94118"; //TODO: fill with correct values
+    std::string ddc_args = ""; //TODO: fill with correct values
+    handler->ddc_ctrl_->set_args(uhd::device_addr_t(ddc_args));
+    handler->ddc_ctrl_->set_arg("input_rate",200000000);
+    handler->ddc_ctrl_->set_arg("output_rate",5882352.94118);
 
-    // std::cout << "Connecting " << handler->radio_ctrl_id_ << " ==> " << handler->ddc_ctrl_->get_block_id() << std::endl;    
-    // rx_graph->connect(handler->radio_ctrl_id_, handler->radio_chan_, handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT);
-    // stream_args_args["block_id"] = handler->ddc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
-    // std::cout << "<---------Using DDC ID : " << handler->ddc_ctrl_->get_block_id().to_string() << std::endl;
-    // // ------------------------------------------------------------
+    std::cout << "Connecting " << handler->radio_ctrl_id_ << " ==> " << handler->ddc_ctrl_->get_block_id() << std::endl;    
+    rx_graph->connect(handler->radio_ctrl_id_, handler->radio_chan_, handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT);
+    stream_args_args["block_id"] = handler->ddc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
+    std::cout << "<---------Using DDC ID : " << handler->ddc_ctrl_->get_block_id().to_string() << std::endl;
+    // ------------------------------------------------------------
+    // TODO: if using DDC or other blocks, then comment following lines
+    // std::cout << "<---------Using Block ID : " << handler->radio_ctrl_id_.to_string() << std::endl;
+    // stream_args_args["block_id"] = handler->radio_ctrl_id_.to_string();
 
 
     /* If device type or name not given in args, choose a B200 */
@@ -407,8 +416,6 @@ int rf_uhd_open(char *args, void **h)
     //   .channel_list = &channel,
     //   .n_channels = 1
     // };
-    std::cout << "<---------Using Block ID : " << handler->radio_ctrl_id_.to_string() << std::endl;
-    stream_args_args["block_id"] = handler->radio_ctrl_id_.to_string();
     uhd::stream_args_t stream_args("fc32","sc16");
     stream_args.args = stream_args_args;
 
@@ -508,12 +515,15 @@ double rf_uhd_set_rx_srate(void *h, double freq)
   RFNoCDevice *handler = (RFNoCDevice*) h;
   // size_t factor = (size_t)200000000/freq;
   // freq = 200000000.0/(float)factor;
-  // std::cout << boost::format("<---------setting Rx sampling rate : %f and factor: %d") % freq % factor << std::endl;
+  handler->ddc_ctrl_->set_arg("input_rate",200000000.0,0); //TODO:read from device
+  handler->ddc_ctrl_->set_arg("output_rate",5882352.94118,0); //TODO:calculate from freq
+  handler->ddc_ctrl_->set_arg("freq",0.0,0);
+  std::cout << boost::format("<---------setting Rx sampling rate : %f ") % handler->ddc_ctrl_->get_arg<double>("output_rate") << std::endl;
   // uhd_usrp_set_rx_rate(handler->usrp, freq, 0);
   // uhd_usrp_get_rx_rate(handler->usrp, 0, &freq);
   // TODO: Is there separate tx and rx sampling rate in radio_ctrl
-  handler->radio_ctrl_->set_rate(freq);
-  freq = handler->radio_ctrl_->get_rate();
+  // handler->radio_ctrl_->set_rate(freq);
+  // freq = handler->radio_ctrl_->get_rate();
   return freq;
 }
 
