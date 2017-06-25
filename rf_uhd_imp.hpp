@@ -9,7 +9,7 @@ class RFNoCDevice {
 public:
   std::string args_;
   std::string radio_args_;
-  size_t radio_id_=0;
+  size_t radio_id_;
   size_t radio_chan_;
   uhd::device3::sptr usrp_;
 
@@ -18,8 +18,12 @@ public:
 
   //uhd::rfnoc::block_id_t ddc_ctrl_id_; // FIXME: It seem you cannot have two block_id_t
   uhd::rfnoc::source_block_ctrl_base::sptr ddc_ctrl_;
+  uhd::rfnoc::source_block_ctrl_base::sptr duc_ctrl_;
   
   uhd::rx_streamer::sptr rx_stream_;
+  uhd::tx_streamer::sptr tx_stream_;
+  uhd::rfnoc::graph::sptr rx_graph_;
+  uhd::rfnoc::graph::sptr tx_graph_;
 
   char *devname;
   uhd_usrp_handle usrp;

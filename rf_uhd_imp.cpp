@@ -35,7 +35,8 @@ struct RFNoCDevice;
 #ifdef __cplusplus
 
 RFNoCDevice::RFNoCDevice(char* args) {
-  args_ = args;
+  args_ = strcat(args,"master_clock_rate=184.32e6");
+  radio_id_ = 0;
   // FIXME : is it a right idea to make the device3 object in the 
   // constructor. We are creating multiple object of this class
   // usrp_ = uhd::device3::make(args_);
@@ -242,22 +243,24 @@ void rf_uhd_flush_buffer(void *h)
 extern "C" 
 #endif
 bool rf_uhd_has_rssi(void *h) {
-  RFNoCDevice *handler = (RFNoCDevice*) h;
-  return handler->has_rssi;
+  //RFNoCDevice *handler = (RFNoCDevice*) h;
+  //return handler->has_rssi;
+  return false;
 }
 
 #ifdef __cplusplus
 extern "C" 
 #endif
 bool get_has_rssi(void *h) {
-  RFNoCDevice *handler = (RFNoCDevice*) h;
-  uhd_string_vector_handle rx_sensors;
-  uhd_string_vector_make(&rx_sensors);
-  std::cout << "Getting sensor name "<<handler->usrp << " " << &rx_sensors<<std::endl;
-  uhd_usrp_get_rx_sensor_names(handler->usrp, 0, &rx_sensors);//FIXME:Error in this
-  bool ret = find_string(rx_sensors, "rssi");
-  uhd_string_vector_free(&rx_sensors);
-  return ret;
+  //RFNoCDevice *handler = (RFNoCDevice*) h;
+  //uhd_string_vector_handle rx_sensors;
+  //uhd_string_vector_make(&rx_sensors);
+  //std::cout << "Getting sensor name "<<handler->usrp << " " << &rx_sensors<<std::endl;
+  //uhd_usrp_get_rx_sensor_names(handler->usrp, 0, &rx_sensors);//FIXME:Error in this
+  //bool ret = find_string(rx_sensors, "rssi");
+  //uhd_string_vector_free(&rx_sensors);
+  //return ret;
+  return false;
 }
 
 #ifdef __cplusplus
@@ -309,7 +312,8 @@ int rf_uhd_open(char *args, void **h)
     //  args = "";
     //}
     handler->devname = NULL;
-    uhd::device_addr_t stream_args_args;
+    uhd::device_addr_t rx_stream_args_args;
+    uhd::device_addr_t tx_stream_args_args;
     // ------------------------------------------------------------
     // XXX : r4tn3sh : moved the USRP object creation here, in order to 
     // avoid creating multiple usrp objects from constructor 
@@ -318,10 +322,12 @@ int rf_uhd_open(char *args, void **h)
     handler->radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", handler->radio_id_);
     handler->radio_ctrl_ = handler->usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(handler->radio_ctrl_id_);
     handler->radio_ctrl_->set_args(handler->radio_args_);//TODO:radio_args is empty now
-    handler->radio_chan_ = 0; //TODO: receive it from somewhere!
+    handler->radio_ctrl_->set_rate(184320000);
+    handler->radio_chan_ = 0;
     std::cout << boost::format("<---------Opening USRP with args: %s is successful, rate = %f")% handler->args_.c_str() % handler->radio_ctrl_->get_rate()<< std::endl;
 
-    uhd::rfnoc::graph::sptr rx_graph = handler->usrp_->create_graph("srslte_rfnoc_rx");
+    handler->rx_graph_ = handler->usrp_->create_graph("srslte_rfnoc_rx");
+    handler->tx_graph_ = handler->usrp_->create_graph("srslte_rfnoc_tx");
 
     // ------------------------------------------------------------
     // XXX : r4tn3sh : DDC and other rfnoc blocks are configured here
@@ -329,19 +335,29 @@ int rf_uhd_open(char *args, void **h)
 
     // handler->ddc_ctrl_id_ = uhd::rfnoc::block_id_t(0, "DDC", 0);
     std::string ddc_id("0/DDC_0");
+    std::string duc_id("0/DUC_0");
 
     handler->ddc_ctrl_ = handler->usrp_->get_block_ctrl<uhd::rfnoc::source_block_ctrl_base>(ddc_id);
+    handler->duc_ctrl_ = handler->usrp_->get_block_ctrl<uhd::rfnoc::source_block_ctrl_base>(duc_id);
 
     //std::string ddc_args = "input_rate 200000000, output_rate 5882352.94118"; //TODO: fill with correct values
-    std::string ddc_args = ""; //TODO: fill with correct values
+    std::string ddc_args = "input_rate=184320000.0,output_rate=30720000.0";
     handler->ddc_ctrl_->set_args(uhd::device_addr_t(ddc_args));
-    handler->ddc_ctrl_->set_arg("input_rate",200000000);
-    handler->ddc_ctrl_->set_arg("output_rate",5882352.94118);
+    //handler->ddc_ctrl_->set_arg("input_rate",184320000.0);
+    //handler->ddc_ctrl_->set_arg("output_rate",30720000.0);
+
+    std::string duc_args = "input_rate=30720000.0,output_rate=184320000.0";
+    handler->duc_ctrl_->set_args(uhd::device_addr_t(duc_args));
 
     std::cout << "Connecting " << handler->radio_ctrl_id_ << " ==> " << handler->ddc_ctrl_->get_block_id() << std::endl;    
     rx_graph->connect(handler->radio_ctrl_id_, handler->radio_chan_, handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT);
-    stream_args_args["block_id"] = handler->ddc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
+    rx_stream_args_args["block_id"] = handler->ddc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
     std::cout << "<---------Using DDC ID : " << handler->ddc_ctrl_->get_block_id().to_string() << std::endl;
+
+    std::cout << "Connecting " << handler->duc_ctrl_->get_block_id() << " ==> " << handler->radio_ctrl_id_ << std::endl;    
+    tx_graph->connect(handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT, handler->radio_ctrl_id_, handler->radio_chan_);
+    tx_stream_args_args["block_id"] = handler->duc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
+    std::cout << "<---------Using DUC ID : " << handler->duc_ctrl_->get_block_id().to_string() << std::endl;
     // ------------------------------------------------------------
     // TODO: if using DDC or other blocks, then comment following lines
     // std::cout << "<---------Using Block ID : " << handler->radio_ctrl_id_.to_string() << std::endl;
@@ -416,8 +432,10 @@ int rf_uhd_open(char *args, void **h)
     //   .channel_list = &channel,
     //   .n_channels = 1
     // };
-    uhd::stream_args_t stream_args("fc32","sc16");
-    stream_args.args = stream_args_args;
+    uhd::stream_args_t rx_stream_args("fc32","sc16");
+    rx_stream_args.args = rx_stream_args_args;
+    uhd::stream_args_t tx_stream_args("fc32","sc16");
+    tx_stream_args.args = tx_stream_args_args;
 
     // Set external clock reference
     /*
@@ -454,11 +472,17 @@ int rf_uhd_open(char *args, void **h)
     // -------------------------------------------------------------------
     // FIXME: r4tn3sh : Streamer creation is not completed 
     // std::cout << "Using streamer args: " << stream_args.args.to_string() << std::endl;
-    uhd::rx_streamer::sptr rx_stream = handler->usrp_->get_rx_stream(stream_args);
+    uhd::rx_streamer::sptr rx_stream = handler->usrp_->get_rx_stream(rx_stream_args);
     handler->rx_stream_ = rx_stream;
     std::cout << "<---------Rx streamer created"<< std::endl;
     handler->rx_nof_samples = handler->rx_stream_->get_max_num_samps();
     std::cout << boost::format("<---------Max samples obtained for rx buffer is %d") % handler->rx_nof_samples << std::endl;
+
+    uhd::rx_streamer::sptr tx_stream = handler->usrp_->get_tx_stream(tx_stream_args);
+    handler->tx_stream_ = tx_stream;
+    std::cout << "<---------Tx streamer created"<< std::endl;
+    handler->tx_nof_samples = handler->tx_stream_->get_max_num_samps();
+    std::cout << boost::format("<---------Max samples obtained for rx buffer is %d") % handler->tx_nof_samples << std::endl;
 
     // uhd_rx_streamer_max_num_samps(handler->rx_stream, &handler->rx_nof_samples);
     // uhd_tx_streamer_max_num_samps(handler->tx_stream, &handler->tx_nof_samples);
@@ -508,29 +532,29 @@ bool rf_uhd_is_master_clock_dynamic(void *h) {
 }
 
 #ifdef __cplusplus
-extern "C" 
+extern "C"
 #endif
-double rf_uhd_set_rx_srate(void *h, double freq)
+double rf_uhd_set_rx_srate(void *h, double rate)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
   // size_t factor = (size_t)200000000/freq;
   // freq = 200000000.0/(float)factor;
-  handler->ddc_ctrl_->set_arg("input_rate",200000000.0,0); //TODO:read from device
-  handler->ddc_ctrl_->set_arg("output_rate",5882352.94118,0); //TODO:calculate from freq
-  handler->ddc_ctrl_->set_arg("freq",0.0,0);
-  std::cout << boost::format("<---------setting Rx sampling rate : %f ") % handler->ddc_ctrl_->get_arg<double>("output_rate") << std::endl;
+  //handler->ddc_ctrl_->set_arg("input_rate",200000000.0,0); //TODO:read from device
+  handler->ddc_ctrl_->set_arg("output_rate", rate, 0);
+  //handler->ddc_ctrl_->set_arg("freq",0.0,0);
+  std::cout << boost::format("<---------setting Rx sampling rate : %f ") % rate = handler->ddc_ctrl_->get_arg<double>("output_rate") << std::endl;
   // uhd_usrp_set_rx_rate(handler->usrp, freq, 0);
   // uhd_usrp_get_rx_rate(handler->usrp, 0, &freq);
   // TODO: Is there separate tx and rx sampling rate in radio_ctrl
   // handler->radio_ctrl_->set_rate(freq);
   // freq = handler->radio_ctrl_->get_rate();
-  return freq;
+  return rate;
 }
 
 #ifdef __cplusplus
 extern "C" 
 #endif
-double rf_uhd_set_tx_srate(void *h, double freq)
+double rf_uhd_set_tx_srate(void *h, double rate)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
   std::cout << "<---------setting Tx sampling rate : "<<freq<< std::endl;
@@ -539,8 +563,10 @@ double rf_uhd_set_tx_srate(void *h, double freq)
   // TODO: make following code usable
   // handler->usrp_->set_tx_rate(freq);
   // freq = handler->usrp_->get_tx_rate();
-  handler->tx_rate = freq;
-  return freq;
+  //handler->tx_rate = freq;
+  handler->duc_ctrl_->set_arg("input_rate", rate, 0);
+  std::cout << boost::format("<---------setting Tx sampling rate : %f ") % rate = handler->duc_ctrl_->get_arg<double>("input_rate") << std::endl;
+  return rate;
 }
 
 #ifdef __cplusplus
