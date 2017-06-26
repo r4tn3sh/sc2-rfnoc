@@ -355,8 +355,8 @@ int rf_uhd_open(char *args, void **h)
     std::cout << "<---------Using DDC ID : " << handler->ddc_ctrl_->get_block_id().to_string() << std::endl;
 
     std::cout << "Connecting " << handler->duc_ctrl_->get_block_id() << " ==> " << handler->radio_ctrl_id_ << std::endl;    
-    handler->tx_graph_->connect(handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT, handler->radio_ctrl_id_, handler->radio_chan_);
-    tx_stream_args_args["block_id"] = handler->duc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
+    handler->tx_graph_->connect(handler->duc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT, handler->radio_ctrl_id_, handler->radio_chan_);
+    tx_stream_args_args["block_id"] = handler->duc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DUC is the endpoint
     std::cout << "<---------Using DUC ID : " << handler->duc_ctrl_->get_block_id().to_string() << std::endl;
     // ------------------------------------------------------------
     // TODO: if using DDC or other blocks, then comment following lines
