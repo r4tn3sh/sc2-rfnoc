@@ -35,7 +35,7 @@ struct RFNoCDevice;
 #ifdef __cplusplus
 
 RFNoCDevice::RFNoCDevice(char* args) {
-  args_ = strcat(args,"master_clock_rate=184.32e6");
+  args_ = strcat(args,",master_clock_rate=184.32e6");
   radio_id_ = 0;
   // FIXME : is it a right idea to make the device3 object in the 
   // constructor. We are creating multiple object of this class
@@ -350,12 +350,12 @@ int rf_uhd_open(char *args, void **h)
     handler->duc_ctrl_->set_args(uhd::device_addr_t(duc_args));
 
     std::cout << "Connecting " << handler->radio_ctrl_id_ << " ==> " << handler->ddc_ctrl_->get_block_id() << std::endl;    
-    rx_graph->connect(handler->radio_ctrl_id_, handler->radio_chan_, handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT);
+    handler->rx_graph_->connect(handler->radio_ctrl_id_, handler->radio_chan_, handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT);
     rx_stream_args_args["block_id"] = handler->ddc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
     std::cout << "<---------Using DDC ID : " << handler->ddc_ctrl_->get_block_id().to_string() << std::endl;
 
     std::cout << "Connecting " << handler->duc_ctrl_->get_block_id() << " ==> " << handler->radio_ctrl_id_ << std::endl;    
-    tx_graph->connect(handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT, handler->radio_ctrl_id_, handler->radio_chan_);
+    handler->tx_graph_->connect(handler->ddc_ctrl_->get_block_id(), uhd::rfnoc::ANY_PORT, handler->radio_ctrl_id_, handler->radio_chan_);
     tx_stream_args_args["block_id"] = handler->duc_ctrl_->get_block_id().to_string();//FIXME:r4tn3sh: currently DDC is the endpoint
     std::cout << "<---------Using DUC ID : " << handler->duc_ctrl_->get_block_id().to_string() << std::endl;
     // ------------------------------------------------------------
@@ -478,7 +478,7 @@ int rf_uhd_open(char *args, void **h)
     handler->rx_nof_samples = handler->rx_stream_->get_max_num_samps();
     std::cout << boost::format("<---------Max samples obtained for rx buffer is %d") % handler->rx_nof_samples << std::endl;
 
-    uhd::rx_streamer::sptr tx_stream = handler->usrp_->get_tx_stream(tx_stream_args);
+    uhd::tx_streamer::sptr tx_stream = handler->usrp_->get_tx_stream(tx_stream_args);
     handler->tx_stream_ = tx_stream;
     std::cout << "<---------Tx streamer created"<< std::endl;
     handler->tx_nof_samples = handler->tx_stream_->get_max_num_samps();
@@ -542,12 +542,8 @@ double rf_uhd_set_rx_srate(void *h, double rate)
   //handler->ddc_ctrl_->set_arg("input_rate",200000000.0,0); //TODO:read from device
   handler->ddc_ctrl_->set_arg("output_rate", rate, 0);
   //handler->ddc_ctrl_->set_arg("freq",0.0,0);
-  std::cout << boost::format("<---------setting Rx sampling rate : %f ") % rate = handler->ddc_ctrl_->get_arg<double>("output_rate") << std::endl;
-  // uhd_usrp_set_rx_rate(handler->usrp, freq, 0);
-  // uhd_usrp_get_rx_rate(handler->usrp, 0, &freq);
-  // TODO: Is there separate tx and rx sampling rate in radio_ctrl
-  // handler->radio_ctrl_->set_rate(freq);
-  // freq = handler->radio_ctrl_->get_rate();
+  rate = (double)handler->ddc_ctrl_->get_arg<double>("output_rate");
+  std::cout << boost::format("<---------setting Rx sampling rate : %f ") % rate << std::endl;
   return rate;
 }
 
@@ -557,15 +553,12 @@ extern "C"
 double rf_uhd_set_tx_srate(void *h, double rate)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  std::cout << "<---------setting Tx sampling rate : "<<freq<< std::endl;
+  std::cout << "<---------setting Tx sampling rate : "<<rate<< std::endl;
   // uhd_usrp_set_tx_rate(handler->usrp, freq, 0);
   // uhd_usrp_get_tx_rate(handler->usrp, 0, &freq);
-  // TODO: make following code usable
-  // handler->usrp_->set_tx_rate(freq);
-  // freq = handler->usrp_->get_tx_rate();
-  //handler->tx_rate = freq;
   handler->duc_ctrl_->set_arg("input_rate", rate, 0);
-  std::cout << boost::format("<---------setting Tx sampling rate : %f ") % rate = handler->duc_ctrl_->get_arg<double>("input_rate") << std::endl;
+  rate = (double)handler->duc_ctrl_->get_arg<double>("input_rate");
+  std::cout << boost::format("<---------setting Tx sampling rate : %f ") % rate << std::endl;
   return rate;
 }
 
