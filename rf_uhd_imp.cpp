@@ -393,13 +393,6 @@ int rf_uhd_open(char *args, void **h)
 
     /* Create UHD handler */
 
-    // //XXX r4tn3sh: attempted to assign usrp_index, FAILED
-    // uhd_error error = uhd_usrp_assign_index(&handler->usrp, 0);
-    // if (error) {
-    //   fprintf(stderr, "Error assigning index UHD: code %d\n", error);
-    //   return -1;
-    // }
-
     //uhd_error error = uhd_usrp_make(&handler->usrp, args);
     /*
     if (error) {
@@ -537,11 +530,7 @@ extern "C"
 double rf_uhd_set_rx_srate(void *h, double rate)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  // size_t factor = (size_t)200000000/freq;
-  // freq = 200000000.0/(float)factor;
-  //handler->ddc_ctrl_->set_arg("input_rate",200000000.0,0); //TODO:read from device
   handler->ddc_ctrl_->set_arg("output_rate", rate, 0);
-  //handler->ddc_ctrl_->set_arg("freq",0.0,0);
   rate = (double)handler->ddc_ctrl_->get_arg<double>("output_rate");
   std::cout << boost::format("<---------setting Rx sampling rate : %f ") % rate << std::endl;
   return rate;
@@ -554,8 +543,6 @@ double rf_uhd_set_tx_srate(void *h, double rate)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
   std::cout << "<---------setting Tx sampling rate : "<<rate<< std::endl;
-  // uhd_usrp_set_tx_rate(handler->usrp, freq, 0);
-  // uhd_usrp_get_tx_rate(handler->usrp, 0, &freq);
   handler->duc_ctrl_->set_arg("input_rate", rate, 0);
   rate = (double)handler->duc_ctrl_->get_arg<double>("input_rate");
   std::cout << boost::format("<---------setting Tx sampling rate : %f ") % rate << std::endl;
@@ -570,8 +557,6 @@ double rf_uhd_set_rx_gain(void *h, double gain)
   RFNoCDevice *handler = (RFNoCDevice*) h;
   std::cout << "<---------USRP with chan : "<< handler->radio_chan_<<std::endl;//
   std::cout << "<---------setting Rx gain : "<< gain<< std::endl;
-  //uhd_usrp_set_rx_gain(handler->usrp, gain, 0, "");
-  //uhd_usrp_get_rx_gain(handler->usrp, 0, "", &gain);
   handler->radio_ctrl_->set_rx_gain(gain, handler->radio_chan_);
   gain = handler->radio_ctrl_->get_rx_gain(handler->radio_chan_);
   return gain;
@@ -584,8 +569,6 @@ double rf_uhd_set_tx_gain(void *h, double gain)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
   std::cout << "<---------setting Tx gain : "<< gain<< std::endl;
-  //uhd_usrp_set_tx_gain(handler->usrp, gain, 0, "");
-  //uhd_usrp_get_tx_gain(handler->usrp, 0, "", &gain);
   handler->radio_ctrl_->set_tx_gain(gain, handler->radio_chan_);
   gain = handler->radio_ctrl_->get_tx_gain(handler->radio_chan_);
   return gain;
@@ -599,7 +582,6 @@ double rf_uhd_get_rx_gain(void *h)
   RFNoCDevice *handler = (RFNoCDevice*) h;
   std::cout << "<---------Getting Rx gain"<< std::endl;
   double gain;
-  //uhd_usrp_get_rx_gain(handler->usrp, 0, "", &gain);
   gain = handler->radio_ctrl_->get_rx_gain(handler->radio_chan_);
   return gain;
 }
@@ -612,7 +594,6 @@ double rf_uhd_get_tx_gain(void *h)
   RFNoCDevice *handler = (RFNoCDevice*) h;
   std::cout << "<---------Getting Tx gain"<< std::endl;
   double gain;
-  //uhd_usrp_get_tx_gain(handler->usrp, 0, "", &gain);
   gain = handler->radio_ctrl_->get_tx_gain(handler->radio_chan_);
   return gain;
 }
@@ -622,17 +603,9 @@ extern "C"
 #endif
 double rf_uhd_set_rx_freq(void *h, double freq)
 {
-  //uhd_tune_request_t tune_request = {
-  //    .target_freq = freq,
-  //    .rf_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO,
-  //    .dsp_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO,
-  //};
-  //uhd_tune_result_t tune_result;
   RFNoCDevice *handler = (RFNoCDevice*) h;
   uhd::tune_request_t tune_request(freq);
   std::cout << "<---------setting Rx freq : "<< freq << std::endl;
-  //uhd_usrp_set_rx_freq(handler->usrp, &tune_request, 0, &tune_result);
-  //uhd_usrp_get_rx_freq(handler->usrp, 0, &freq);
   handler->radio_ctrl_->set_rx_frequency(freq, handler->radio_chan_);
   freq = handler->radio_ctrl_->get_rx_frequency(handler->radio_chan_);
   return freq;
@@ -643,16 +616,8 @@ extern "C"
 #endif
 double rf_uhd_set_tx_freq(void *h, double freq)
 {
-  //uhd_tune_request_t tune_request = {
-  //    .target_freq = freq,
-  //    .rf_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO,
-  //    .dsp_freq_policy = UHD_TUNE_REQUEST_POLICY_AUTO,
-  //};
-  //uhd_tune_result_t tune_result;
   RFNoCDevice *handler = (RFNoCDevice*) h;
   std::cout << "<---------setting Tx freq : "<< freq<< std::endl;
-  //uhd_usrp_set_tx_freq(handler->usrp, &tune_request, 0, &tune_result);
-  //uhd_usrp_get_tx_freq(handler->usrp, 0, &freq);
   handler->radio_ctrl_->set_tx_frequency(freq, handler->radio_chan_);
   freq = handler->radio_ctrl_->get_tx_frequency(handler->radio_chan_);
   return freq;
