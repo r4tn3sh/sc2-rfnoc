@@ -653,15 +653,60 @@ int rf_uhd_recv_with_time(void *h,
     unsigned int n = 0;
     cf_t *data_c = (cf_t*) data;
     do {
-      size_t rx_samples = handler->rx_nof_samples;
+      // zz4fap: increase the number of samples read.
+      // size_t rx_samples = handler->rx_nof_samples;
+      size_t rx_samples = SCATTER_SAMPLES_TO_READ;
+
+#if SCATTER_DEBUG_MODE
+      //zz4fap: DEBUG: REMOVER!!!!
+      if(data == NULL) {
+        printf("zz4fap: data == NULL!!!!!!!!!!!!!!!\n");
+        exit(-1);
+      }
+
+      if(md == NULL) {
+        printf("zz4fap: md == NULL!!!!!!!!!!!!!!!\n");
+        exit(-1);
+      }
+
+      if(rx_samples <= 0) {
+        printf("zz4fap: Menor ou negativo - handler->rx_nof_samples: %d !!!!!!!!!!!!!!!\n",rx_samples);
+        exit(-1);
+      }
+
+      if(nsamples <= 0) {
+        printf("zz4fap: Menor ou negativo - nsamples: %d !!!!!!!!!!!!!!!\n",nsamples);
+        exit(-1);
+      }
+      //zz4fap: DEBUG: REMOVER!!!!
+#endif
 
       if (rx_samples > nsamples - n) {
         rx_samples = nsamples - n;
       }
       void *buff = (void*) &data_c[n];
       void **buffs_ptr = (void**) &buff;
+#if SCATTER_DEBUG_MODE
+      //zz4fap: DEBUG: REMOVER!!!!
+      if(rx_samples <= 0) {
+        printf("zz4fap: Menor ou negativo - handler->rx_nof_samples: %d !!!!!!!!!!!!!!!\n",rx_samples);
+        exit(-1);
+      }
+
+      if(buffs_ptr == NULL) {
+        printf("zz4fap: buffs_ptr == NULL !!!!!!!!!!!!!!!\n");
+        exit(-1);
+      }
+      //zz4fap: DEBUG: REMOVER!!!!
+#endif
       uhd_error error = uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
-                                             rx_samples, md, 5.0, false, &rxd_samples);
+          rx_samples, md, 5.0, false, &rxd_samples);
+
+#if SCATTER_DEBUG_MODE
+      if(rxd_samples <= 0) {
+        printf("zz4fap: Received no samples from UHD, nsamples: %d - rxd_samples: %d - n: %d - handler->rx_nof_samples: %d - rx_samples: %d !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", nsamples, rxd_samples, n, handler->rx_nof_samples, rx_samples); //zz4fap: DEBUG: REMOVER!!!!
+      }
+#endif
 
       if (error) {
         fprintf(stderr, "Error receiving from UHD: %d\n", error);
@@ -670,6 +715,18 @@ int rf_uhd_recv_with_time(void *h,
       md = &handler->rx_md;
       n += rxd_samples;
       trials++;
+#if SCATTER_DEBUG_MODE
+      uhd_rx_metadata_error_code_t error_code;
+      uhd_rx_metadata_error_code(*md, &error_code);
+      if (error_code == UHD_RX_METADATA_ERROR_CODE_OVERFLOW) {
+        log_overflow(handler);
+      } else if (error_code == UHD_RX_METADATA_ERROR_CODE_LATE_COMMAND) {
+        log_late(handler);
+      } else if (error_code != UHD_RX_METADATA_ERROR_CODE_NONE) {
+        fprintf(stderr, "Error code 0x%x was returned during streaming. Aborting.\n", error_code);
+      }
+#endif
+
     } while (n < nsamples && trials < 100);
   } else {
     void **buffs_ptr = (void**) &data;

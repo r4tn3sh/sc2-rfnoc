@@ -40,6 +40,7 @@ extern "C" {
 #define DEVNAME_B200 "uhd_b200"
 #define DEVNAME_X300 "uhd_x300"
 
+#define SCATTER_SAMPLES_TO_READ 768 // This value is equivalent to the size of 2 OFDM symbols.
 
 SRSLTE_API int rf_uhd_open(char *args, 
                         void **handler);
