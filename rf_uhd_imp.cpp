@@ -44,9 +44,6 @@ RFNoCDevice::RFNoCDevice(char* args) {
   // // FIXME: at this point uhd_usrp_make would have assigned a usrp_index to uhd_usrp_handle
   // // Therefor following line is added assuming only one USRP is used
   // usrp->usrp_index = 0;
-  // // TODO: Previous operation was not successful as the uhd_usrp (a struct) is not defined in 
-  // // one of the included header files. Defination is in a cpp file. Changing that would mean
-  // // changing uhd driver. Unsure if that is the direction we want to take
 
   // radio_ctrl_id_ = uhd::rfnoc::block_id_t(0, "Radio", radio_id_);
   // radio_ctrl_ = usrp_->get_block_ctrl< uhd::rfnoc::radio_ctrl >(radio_ctrl_id_);
@@ -61,6 +58,37 @@ void suppress_handler(const char *x)
 {
   // do nothing
 }
+
+// Added by zz4fap
+// TODO : Enable support for error log
+// static void log_overflow(rf_uhd_handler_t *h) {
+//   if (h->uhd_error_handler) {
+//     srslte_rf_error_t error;
+//     bzero(&error, sizeof(srslte_rf_error_t));
+//     error.type = SRSLTE_RF_ERROR_OVERFLOW;
+//     h->uhd_error_handler(error);
+//   }
+// }
+// 
+// static void log_late(rf_uhd_handler_t *h) {
+//   if (h->uhd_error_handler) {
+//     srslte_rf_error_t error;
+//     bzero(&error, sizeof(srslte_rf_error_t));
+//     error.type = SRSLTE_RF_ERROR_LATE;
+//     h->uhd_error_handler(error);
+//   }
+// }
+// 
+// static void log_underflow(rf_uhd_handler_t *h) {
+//   if (h->uhd_error_handler) {
+//     srslte_rf_error_t error;
+//     bzero(&error, sizeof(srslte_rf_error_t));
+//     error.type = SRSLTE_RF_ERROR_UNDERFLOW;
+//     h->uhd_error_handler(error);
+//   }
+// }
+
+
 
 srslte_rf_error_handler_t rfnoc_uhd_error_handler = NULL;
 
@@ -82,6 +110,77 @@ void msg_handler(const char *msg)
     rfnoc_uhd_error_handler(error);
   }
 }
+
+// FIXME : Following may not be useful since device3->radio_ctrl
+// operations do not return uhd_error
+// char* print_uhd_error(uhd_error error) {
+// 
+//   char* error_string = NULL;
+// 
+//   switch(error) {
+//     case UHD_ERROR_NONE:
+//       error_string = "UHD_ERROR_NONE";
+//       break;
+//     case UHD_ERROR_INVALID_DEVICE:
+//       error_string = "UHD_ERROR_INVALID_DEVICE";
+//       break;
+//     case UHD_ERROR_INDEX:
+//       error_string = "UHD_ERROR_INDEX";
+//       break;
+//     case UHD_ERROR_KEY:
+//       error_string = "UHD_ERROR_KEY";
+//       break;
+//     case UHD_ERROR_NOT_IMPLEMENTED:
+//       error_string = "UHD_ERROR_NOT_IMPLEMENTED";
+//       break;
+//     case UHD_ERROR_USB:
+//       error_string = "UHD_ERROR_USB";
+//       break;
+//     case UHD_ERROR_IO:
+//       error_string = "UHD_ERROR_IO";
+//       break;
+//     case UHD_ERROR_OS:
+//       error_string = "UHD_ERROR_OS";
+//       break;
+//     case UHD_ERROR_ASSERTION:
+//       error_string = "UHD_ERROR_ASSERTION";
+//       break;
+//     case UHD_ERROR_LOOKUP:
+//       error_string = "UHD_ERROR_LOOKUP";
+//       break;
+//     case UHD_ERROR_TYPE:
+//       error_string = "UHD_ERROR_TYPE";
+//       break;
+//     case UHD_ERROR_VALUE:
+//       error_string = "UHD_ERROR_VALUE";
+//       break;
+//     case UHD_ERROR_RUNTIME:
+//       error_string = "UHD_ERROR_RUNTIME";
+//       break;
+//     case UHD_ERROR_ENVIRONMENT:
+//       error_string = "UHD_ERROR_ENVIRONMENT";
+//       break;
+//     case UHD_ERROR_SYSTEM:
+//       error_string = "UHD_ERROR_SYSTEM";
+//       break;
+//     case UHD_ERROR_EXCEPT:
+//       error_string = "UHD_ERROR_EXCEPT";
+//       break;
+//     case UHD_ERROR_BOOSTEXCEPT:
+//       error_string = "UHD_ERROR_BOOSTEXCEPT";
+//       break;
+//     case UHD_ERROR_STDEXCEPT:
+//       error_string = "UHD_ERROR_STDEXCEPT";
+//       break;
+//     case UHD_ERROR_UNKNOWN:
+//       error_string = "UHD_ERROR_UNKNOWN";
+//       break;
+//     default:
+//       error_string = "Unknown error code.....";
+//   }
+//   return error_string;
+// }
+
 
 #ifdef __cplusplus
 extern "C" 
