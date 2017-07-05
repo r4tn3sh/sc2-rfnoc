@@ -644,6 +644,7 @@ double rf_uhd_set_tx_srate(void *h, double rate)
   std::cout << "<---------setting Tx sampling rate : "<<rate<< std::endl;
   handler->duc_ctrl_->set_arg("input_rate", rate, 0);
   rate = (double)handler->duc_ctrl_->get_arg<double>("input_rate");
+  handler->tx_rate = rate;
   std::cout << boost::format("<---------setting Tx sampling rate : %f ") % rate << std::endl;
   return rate;
 }
@@ -867,11 +868,14 @@ int rf_uhd_send_timed(void *h,
     bool is_start_of_burst,
     bool is_end_of_burst)
 {
-  rf_uhd_handler_t* handler = (rf_uhd_handler_t*) h;
+  // rf_uhd_handler_t* handler = (rf_uhd_handler_t*) h;
+  RFNoCDevice *handler = (RFNoCDevice*) h;
+  uhd::tx_metadata_t md;
 
   size_t txd_samples;
   if (has_time_spec) {
-    uhd_tx_metadata_set_time_spec(&handler->tx_md, secs, frac_secs);
+    // uhd_tx_metadata_set_time_spec(&handler->tx_md, secs, frac_secs);
+    md.time_spec = uhd::time_spec_t(secs, frac_secs);
   }
   int trials = 0;
   if (blocking) {
@@ -882,29 +886,37 @@ int rf_uhd_send_timed(void *h,
 
       // First packet is start of burst if so defined, others are never
       if (n == 0) {
-        uhd_tx_metadata_set_start(&handler->tx_md, is_start_of_burst);
+        md.start_of_burst = is_start_of_burst;
+        // uhd_tx_metadata_set_start(&handler->tx_md, is_start_of_burst);
       } else {
-        uhd_tx_metadata_set_start(&handler->tx_md, false);
+        md.start_of_burst = false;
+        // uhd_tx_metadata_set_start(&handler->tx_md, false);
       }
 
       // middle packets are never end of burst, last one as defined
       if (nsamples - n > tx_samples) {
-        uhd_tx_metadata_set_end(&handler->tx_md, false);
+        md.end_of_burst = false;
+        // uhd_tx_metadata_set_end(&handler->tx_md, false);
       } else {
         tx_samples = nsamples - n;
-        uhd_tx_metadata_set_end(&handler->tx_md, is_end_of_burst);
+        md.end_of_burst = is_end_of_burst;
+        // uhd_tx_metadata_set_end(&handler->tx_md, is_end_of_burst);
       }
 
       void *buff = (void*) &data_c[n];
       const void **buffs_ptr = (const void**) &buff;
-      uhd_error error = uhd_tx_streamer_send(handler->tx_stream, buffs_ptr,
-          tx_samples, &handler->tx_md, 3.0, &txd_samples);
-      if (error) {
-        fprintf(stderr, "Error sending to UHD: %d\n", error);
-        return -1;
-      }
+      txd_samples = handler->tx_stream_->send(buffs_ptr, tx_samples, md, 3.0);
+      // uhd_error error = uhd_tx_streamer_send(handler->tx_stream, buffs_ptr,
+      //     tx_samples, &handler->tx_md, 3.0, &txd_samples);
+      // if (error) {
+      //   fprintf(stderr, "Error sending to UHD: %d\n", error);
+      //   return -1;
+      // }
+
       // Increase time spec
-      uhd_tx_metadata_add_time_spec(&handler->tx_md, txd_samples/handler->tx_rate);
+      // uhd_tx_metadata_add_time_spec(&handler->tx_md, txd_samples/handler->tx_rate);
+      md.time_spec += txd_samples/handler->tx_rate;
+
       n += txd_samples;
       trials++;
     } while (n < nsamples && trials < 100);
