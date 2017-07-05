@@ -731,6 +731,8 @@ void rf_uhd_get_time(void *h, time_t *secs, double *frac_secs) {
   const uhd::time_spec_t t = handler->radio_ctrl_->get_time_now();
   // TODO: copy the value to secs and frac_secs
   // uhd_usrp_get_time_now(handler->usrp, 0, secs, frac_secs);
+  *secs = t.get_full_secs();
+  *frac_secs = t.get_frac_secs();
 }
 
 #ifdef __cplusplus
@@ -746,7 +748,8 @@ int rf_uhd_recv_with_time(void *h,
 
   RFNoCDevice *handler = (RFNoCDevice*) h;
   size_t rxd_samples;
-  uhd_rx_metadata_handle *md = &handler->rx_md_first;
+  // uhd_rx_metadata_handle *md = &handler->rx_md_first;
+  uhd::rx_metadata_t md;
   int trials = 0;
   if (blocking) {
     unsigned int n = 0;
@@ -798,43 +801,56 @@ int rf_uhd_recv_with_time(void *h,
       }
       //zz4fap: DEBUG: REMOVER!!!!
 #endif
-      uhd_error error = uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
-          rx_samples, md, 5.0, false, &rxd_samples);
+      printf("r4tn3sh : ------> 1, n=%d, rx_samples=%d \n",n, rx_samples);
+      // TODO : r4tn3sh : following code needs to be replaced for rx_streamer
+      // uhd_error error = uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
+      //     rx_samples, md, 5.0, false, &rxd_samples);
+      rxd_samples = handler->rx_stream_->recv(buffs_ptr, rx_samples, md, 5.0, false);
+      printf("r4tn3sh : ------> 2, samples = %d\n", rxd_samples);
 
 #if SCATTER_DEBUG_MODE
       if(rxd_samples <= 0) {
         printf("zz4fap: Received no samples from UHD, nsamples: %d - rxd_samples: %d - n: %d - handler->rx_nof_samples: %d - rx_samples: %d !!!!!!!!!!!!!!!!!!!!!!!!!!!!\n", nsamples, rxd_samples, n, handler->rx_nof_samples, rx_samples); //zz4fap: DEBUG: REMOVER!!!!
       }
 #endif
-
-      if (error) {
-        fprintf(stderr, "Error receiving from UHD: %d\n", error);
-        return -1;
+      if (md.error_code == uhd::rx_metadata_t::ERROR_CODE_TIMEOUT) {
+        std::cout << boost::format("Timeout while streaming") << std::endl;
+        break;
       }
-      md = &handler->rx_md;
+
+      if (md.error_code != uhd::rx_metadata_t::ERROR_CODE_NONE){
+        std::string error = str(boost::format("Receiver error: %s") % md.strerror());
+        throw std::runtime_error(error);
+      }
+      printf("r4tn3sh : ------> 3\n");
+      // if (error) {
+      //   fprintf(stderr, "Error receiving from UHD: %d\n", error);
+      //   return -1;
+      // }
+      // md = &handler->rx_md;
       n += rxd_samples;
       trials++;
 #if SCATTER_DEBUG_MODE
-      uhd_rx_metadata_error_code_t error_code;
-      uhd_rx_metadata_error_code(*md, &error_code);
-      if (error_code == UHD_RX_METADATA_ERROR_CODE_OVERFLOW) {
-        log_overflow(handler);
-      } else if (error_code == UHD_RX_METADATA_ERROR_CODE_LATE_COMMAND) {
-        log_late(handler);
-      } else if (error_code != UHD_RX_METADATA_ERROR_CODE_NONE) {
-        fprintf(stderr, "Error code 0x%x was returned during streaming. Aborting.\n", error_code);
-      }
+      // uhd_rx_metadata_error_code_t error_code;
+      // uhd_rx_metadata_error_code(*md, &error_code);
+      // if (error_code == UHD_RX_METADATA_ERROR_CODE_OVERFLOW) {
+      //   log_overflow(handler);
+      // } else if (error_code == UHD_RX_METADATA_ERROR_CODE_LATE_COMMAND) {
+      //   log_late(handler);
+      // } else if (error_code != UHD_RX_METADATA_ERROR_CODE_NONE) {
+      //   fprintf(stderr, "Error code 0x%x was returned during streaming. Aborting.\n", error_code);
+      // }
 #endif
 
     } while (n < nsamples && trials < 100);
   } else {
-    void **buffs_ptr = (void**) &data;
-    return uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
-                                             nsamples, md, 0.0, false, &rxd_samples);
+    // void **buffs_ptr = (void**) &data;
+    // return uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
+    //     nsamples, md, 0.0, false, &rxd_samples);
   }
-  if (secs && frac_secs) {
-    uhd_rx_metadata_time_spec(handler->rx_md_first, secs, frac_secs);
-  }
+  // if (secs && frac_secs) {
+  //   uhd_rx_metadata_time_spec(handler->rx_md_first, secs, frac_secs);
+  // }
   return nsamples;
 }
 
@@ -842,14 +858,14 @@ int rf_uhd_recv_with_time(void *h,
 extern "C" 
 #endif
 int rf_uhd_send_timed(void *h,
-                     void *data,
-                     int nsamples,
-                     time_t secs,
-                     double frac_secs,
-                     bool has_time_spec,
-                     bool blocking,
-                     bool is_start_of_burst,
-                     bool is_end_of_burst)
+    void *data,
+    int nsamples,
+    time_t secs,
+    double frac_secs,
+    bool has_time_spec,
+    bool blocking,
+    bool is_start_of_burst,
+    bool is_end_of_burst)
 {
   rf_uhd_handler_t* handler = (rf_uhd_handler_t*) h;
 
@@ -882,7 +898,7 @@ int rf_uhd_send_timed(void *h,
       void *buff = (void*) &data_c[n];
       const void **buffs_ptr = (const void**) &buff;
       uhd_error error = uhd_tx_streamer_send(handler->tx_stream, buffs_ptr,
-                                             tx_samples, &handler->tx_md, 3.0, &txd_samples);
+          tx_samples, &handler->tx_md, 3.0, &txd_samples);
       if (error) {
         fprintf(stderr, "Error sending to UHD: %d\n", error);
         return -1;
