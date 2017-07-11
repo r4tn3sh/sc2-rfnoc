@@ -333,8 +333,10 @@ void rf_uhd_flush_buffer(void *h)
 {
   int n;
   cf_t tmp[1024];
+  printf("Flushing begins \n");
   do {
     n = rf_uhd_recv_with_time(h, tmp, 1024, 0, NULL, NULL);
+    printf("n=%d\n",n);
   } while (n > 0);
 }
 
@@ -751,10 +753,10 @@ int rf_uhd_recv_with_time(void *h,
   size_t rxd_samples;
   // uhd_rx_metadata_handle *md = &handler->rx_md_first;
   uhd::rx_metadata_t md;
+  cf_t *data_c = (cf_t*) data;
   int trials = 0;
   if (blocking) {
     unsigned int n = 0;
-    cf_t *data_c = (cf_t*) data;
     do {
       // zz4fap: increase the number of samples read.
       // size_t rx_samples = handler->rx_nof_samples;
@@ -846,8 +848,9 @@ int rf_uhd_recv_with_time(void *h,
     // void **buffs_ptr = (void**) &data;
     // return uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
     //     nsamples, md, 0.0, false, &rxd_samples);
-    rxd_samples = handler->rx_stream_->recv(&data, nsamples, md, 0.0, false);
-    return 0;
+    rxd_samples = handler->rx_stream_->recv(&data_c[0], nsamples, md, 0.0, false);
+    std::cout << boost::format("Flushing buffer %d %d") % rxd_samples % nsamples << std::endl;
+    return md.error_code;
   }
   // if (secs && frac_secs) {
   //   uhd_rx_metadata_time_spec(handler->rx_md_first, secs, frac_secs);
