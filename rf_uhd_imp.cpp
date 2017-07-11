@@ -802,12 +802,11 @@ int rf_uhd_recv_with_time(void *h,
       }
       //zz4fap: DEBUG: REMOVER!!!!
 #endif
-      printf("r4tn3sh : ------> 1, n=%d, rx_samples=%d \n",n, rx_samples);
       // TODO : r4tn3sh : following code needs to be replaced for rx_streamer
       // uhd_error error = uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
       //     rx_samples, md, 5.0, false, &rxd_samples);
-      rxd_samples = handler->rx_stream_->recv(buffs_ptr, rx_samples, md, 5.0, false);
-      printf("r4tn3sh : ------> 2, samples = %d\n", rxd_samples);
+      rxd_samples = handler->rx_stream_->recv(&data_c[n], rx_samples, md, 5.0, false);
+      //rxd_samples = handler->rx_stream_->recv(buffs_ptr, rx_samples, md, 5.0, false);
 
 #if SCATTER_DEBUG_MODE
       if(rxd_samples <= 0) {
@@ -823,7 +822,6 @@ int rf_uhd_recv_with_time(void *h,
         std::string error = str(boost::format("Receiver error: %s") % md.strerror());
         throw std::runtime_error(error);
       }
-      printf("r4tn3sh : ------> 3\n");
       // if (error) {
       //   fprintf(stderr, "Error receiving from UHD: %d\n", error);
       //   return -1;
@@ -848,6 +846,8 @@ int rf_uhd_recv_with_time(void *h,
     // void **buffs_ptr = (void**) &data;
     // return uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
     //     nsamples, md, 0.0, false, &rxd_samples);
+    rxd_samples = handler->rx_stream_->recv(&data, nsamples, md, 0.0, false);
+    return 0;
   }
   // if (secs && frac_secs) {
   //   uhd_rx_metadata_time_spec(handler->rx_md_first, secs, frac_secs);
