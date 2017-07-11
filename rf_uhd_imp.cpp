@@ -881,9 +881,9 @@ int rf_uhd_send_timed(void *h,
     md.time_spec = uhd::time_spec_t(secs, frac_secs);
   }
   int trials = 0;
+  cf_t *data_c = (cf_t*) data;
   if (blocking) {
     unsigned int n = 0;
-    cf_t *data_c = (cf_t*) data;
     do {
       size_t tx_samples = handler->tx_nof_samples;
 
@@ -908,7 +908,7 @@ int rf_uhd_send_timed(void *h,
 
       void *buff = (void*) &data_c[n];
       const void **buffs_ptr = (const void**) &buff;
-      txd_samples = handler->tx_stream_->send(buffs_ptr, tx_samples, md, 3.0);
+      txd_samples = handler->tx_stream_->send(&data_c[n], tx_samples, md, 3.0);
       // uhd_error error = uhd_tx_streamer_send(handler->tx_stream, buffs_ptr,
       //     tx_samples, &handler->tx_md, 3.0, &txd_samples);
       // if (error) {
@@ -925,9 +925,13 @@ int rf_uhd_send_timed(void *h,
     } while (n < nsamples && trials < 100);
     return nsamples;
   } else {
-    const void **buffs_ptr = (const void**) &data;
-    uhd_tx_metadata_set_start(&handler->tx_md, is_start_of_burst);
-    uhd_tx_metadata_set_end(&handler->tx_md, is_end_of_burst);
-    return uhd_tx_streamer_send(handler->tx_stream, buffs_ptr, nsamples, &handler->tx_md, 0.0, &txd_samples);
+    md.start_of_burst = is_start_of_burst;
+    md.end_of_burst = is_end_of_burst;
+    txd_samples = handler->tx_stream_->send(&data_c[0], nsamples, md, 0.0);
+    return 0;
+    // const void **buffs_ptr = (const void**) &data;
+    // uhd_tx_metadata_set_start(&handler->tx_md, is_start_of_burst);
+    // uhd_tx_metadata_set_end(&handler->tx_md, is_end_of_burst);
+    // return uhd_tx_streamer_send(handler->tx_stream, buffs_ptr, nsamples, &handler->tx_md, 0.0, &txd_samples);
   }
 }
