@@ -576,7 +576,7 @@ int rf_uhd_open(char *args, void **h)
     handler->tx_stream_ = tx_stream;
     std::cout << "<---------Tx streamer created"<< std::endl;
     handler->tx_nof_samples = handler->tx_stream_->get_max_num_samps();
-    std::cout << boost::format("<---------Max samples obtained for rx buffer is %d") % handler->tx_nof_samples << std::endl;
+    std::cout << boost::format("<---------Max samples obtained for tx buffer is %d") % handler->tx_nof_samples << std::endl;
 
     // uhd_rx_streamer_max_num_samps(handler->rx_stream, &handler->rx_nof_samples);
     // uhd_tx_streamer_max_num_samps(handler->tx_stream, &handler->tx_nof_samples);
@@ -816,7 +816,7 @@ int rf_uhd_recv_with_time(void *h,
       }
 #endif
       if (md.error_code == uhd::rx_metadata_t::ERROR_CODE_TIMEOUT) {
-        std::cout << boost::format("Timeout while streaming") << std::endl;
+        // std::cout << boost::format("Timeout while streaming") << std::endl;
         break;
       }
 
@@ -909,6 +909,7 @@ int rf_uhd_send_timed(void *h,
       void *buff = (void*) &data_c[n];
       const void **buffs_ptr = (const void**) &buff;
       txd_samples = handler->tx_stream_->send(&data_c[n], tx_samples, md, 3.0);
+      std::cout << boost::format("n=%d, txd_sample=%d, namples=%d")% n  % txd_samples% nsamples << std::endl;
       // uhd_error error = uhd_tx_streamer_send(handler->tx_stream, buffs_ptr,
       //     tx_samples, &handler->tx_md, 3.0, &txd_samples);
       // if (error) {
@@ -925,6 +926,7 @@ int rf_uhd_send_timed(void *h,
     } while (n < nsamples && trials < 100);
     return nsamples;
   } else {
+    std::cout << boost::format("Transmission not blocked ... ")<< std::endl;
     md.start_of_burst = is_start_of_burst;
     md.end_of_burst = is_end_of_burst;
     txd_samples = handler->tx_stream_->send(&data_c[0], nsamples, md, 0.0);
