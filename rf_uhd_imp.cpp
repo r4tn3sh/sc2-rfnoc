@@ -244,7 +244,7 @@ extern "C"
 //for reading the information about sensors.
 bool rf_uhd_rx_wait_lo_locked(void *h)
 {
-  RFNoCDevice *handler = (RFNoCDevice*) h;
+  // RFNoCDevice *handler = (RFNoCDevice*) h;
 
   // uhd_string_vector_handle mb_sensors;
   // uhd_string_vector_handle rx_sensors;
@@ -517,7 +517,7 @@ int rf_uhd_open(char *args, void **h)
     }
     */
     handler->devname = (char *) DEVNAME_X300;
-    size_t channel = 0;
+    // size_t channel = 0; //FIXME: not used
     std::string streamargs="";
     // uhd_stream_args_t stream_args = {
     //   .cpu_format = (char *) "fc32",
@@ -546,7 +546,6 @@ int rf_uhd_open(char *args, void **h)
     // }
 
     /* Initialize rx and tx stremers */
-    //FIXME: This method of creating stream does not seem to be compatible with rfnoc_fft_rx_to_file
     // std::cout<<"Creating streamers"<<std::endl;
     // uhd_rx_streamer_make(&handler->rx_stream);
     // uhd_error error = uhd_usrp_get_rx_stream(handler->usrp, &stream_args, handler->rx_stream);
@@ -564,8 +563,6 @@ int rf_uhd_open(char *args, void **h)
 
 
     // -------------------------------------------------------------------
-    // FIXME: r4tn3sh : Streamer creation is not completed 
-    // std::cout << "Using streamer args: " << stream_args.args.to_string() << std::endl;
     uhd::rx_streamer::sptr rx_stream = handler->usrp_->get_rx_stream(rx_stream_args);
     handler->rx_stream_ = rx_stream;
     std::cout << "<---------Rx streamer created"<< std::endl;
@@ -633,7 +630,7 @@ double rf_uhd_set_rx_srate(void *h, double rate)
   RFNoCDevice *handler = (RFNoCDevice*) h;
   handler->ddc_ctrl_->set_arg("output_rate", rate, 0);
   rate = (double)handler->ddc_ctrl_->get_arg<double>("output_rate");
-  std::cout << boost::format("<---------setting Rx sampling rate : %f ") % rate << std::endl;
+  std::cout << boost::format("<---------Setting Rx sampling rate : %f ") % rate << std::endl;
   return rate;
 }
 
@@ -643,11 +640,11 @@ extern "C"
 double rf_uhd_set_tx_srate(void *h, double rate)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  std::cout << "<---------setting Tx sampling rate : "<<rate<< std::endl;
+  std::cout << "<---------Setting Tx sampling rate : "<<rate<< std::endl;
   handler->duc_ctrl_->set_arg("input_rate", rate, 0);
   rate = (double)handler->duc_ctrl_->get_arg<double>("input_rate");
   handler->tx_rate = rate;
-  std::cout << boost::format("<---------setting Tx sampling rate : %f ") % rate << std::endl;
+  std::cout << boost::format("<---------Setting Tx sampling rate : %f ") % rate << std::endl;
   return rate;
 }
 
@@ -658,7 +655,7 @@ double rf_uhd_set_rx_gain(void *h, double gain)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
   std::cout << "<---------USRP with chan : "<< handler->radio_chan_<<std::endl;//
-  std::cout << "<---------setting Rx gain : "<< gain<< std::endl;
+  std::cout << "<---------Setting Rx gain : "<< gain<< std::endl;
   handler->radio_ctrl_->set_rx_gain(gain, handler->radio_chan_);
   gain = handler->radio_ctrl_->get_rx_gain(handler->radio_chan_);
   return gain;
@@ -670,7 +667,7 @@ extern "C"
 double rf_uhd_set_tx_gain(void *h, double gain)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  std::cout << "<---------setting Tx gain : "<< gain<< std::endl;
+  std::cout << "<---------Setting Tx gain : "<< gain<< std::endl;
   handler->radio_ctrl_->set_tx_gain(gain, handler->radio_chan_);
   gain = handler->radio_ctrl_->get_tx_gain(handler->radio_chan_);
   return gain;
@@ -707,7 +704,7 @@ double rf_uhd_set_rx_freq(void *h, double freq)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
   uhd::tune_request_t tune_request(freq);
-  std::cout << "<---------setting Rx freq : "<< freq << std::endl;
+  std::cout << "<---------Setting Rx freq : "<< freq << std::endl;
   handler->radio_ctrl_->set_rx_frequency(freq, handler->radio_chan_);
   freq = handler->radio_ctrl_->get_rx_frequency(handler->radio_chan_);
   return freq;
@@ -719,7 +716,7 @@ extern "C"
 double rf_uhd_set_tx_freq(void *h, double freq)
 {
   RFNoCDevice *handler = (RFNoCDevice*) h;
-  std::cout << "<---------setting Tx freq : "<< freq<< std::endl;
+  std::cout << "<---------Setting Tx freq : "<< freq<< std::endl;
   handler->radio_ctrl_->set_tx_frequency(freq, handler->radio_chan_);
   freq = handler->radio_ctrl_->get_tx_frequency(handler->radio_chan_);
   return freq;
@@ -789,8 +786,8 @@ int rf_uhd_recv_with_time(void *h,
       if (rx_samples > nsamples - n) {
         rx_samples = nsamples - n;
       }
-      void *buff = (void*) &data_c[n];
-      void **buffs_ptr = (void**) &buff;
+      // void *buff = (void*) &data_c[n];
+      // void **buffs_ptr = (void**) &buff;
 #if SCATTER_DEBUG_MODE
       //zz4fap: DEBUG: REMOVER!!!!
       if(rx_samples <= 0) {
@@ -804,11 +801,10 @@ int rf_uhd_recv_with_time(void *h,
       }
       //zz4fap: DEBUG: REMOVER!!!!
 #endif
-      // TODO : r4tn3sh : following code needs to be replaced for rx_streamer
+      // XXX : r4tn3sh : following code needs to be replaced for rx_streamer
       // uhd_error error = uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
       //     rx_samples, md, 5.0, false, &rxd_samples);
       rxd_samples = handler->rx_stream_->recv(&data_c[n], rx_samples, md, 5.0, false);
-      //rxd_samples = handler->rx_stream_->recv(buffs_ptr, rx_samples, md, 5.0, false);
 
 #if SCATTER_DEBUG_MODE
       if(rxd_samples <= 0) {
@@ -816,7 +812,6 @@ int rf_uhd_recv_with_time(void *h,
       }
 #endif
       if (md.error_code == uhd::rx_metadata_t::ERROR_CODE_TIMEOUT) {
-        // std::cout << boost::format("Timeout while streaming") << std::endl;
         break;
       }
 
@@ -845,16 +840,14 @@ int rf_uhd_recv_with_time(void *h,
 
     } while (n < nsamples && trials < 100);
   } else {
-    // void **buffs_ptr = (void**) &data;
-    // return uhd_rx_streamer_recv(handler->rx_stream, buffs_ptr,
-    //     nsamples, md, 0.0, false, &rxd_samples);
     rxd_samples = handler->rx_stream_->recv(&data_c[0], nsamples, md, 0.0, false);
-    std::cout << boost::format("Flushing buffer %d %d") % rxd_samples % nsamples << std::endl;
     return md.error_code;
   }
-  // if (secs && frac_secs) {
-  //   uhd_rx_metadata_time_spec(handler->rx_md_first, secs, frac_secs);
-  // }
+  if (secs && frac_secs) {
+    *secs = md.time_spec.get_full_secs();
+    *frac_secs = md.time_spec.get_frac_secs();
+    // uhd_rx_metadata_time_spec(handler->rx_md_first, secs, frac_secs);
+  }
   return nsamples;
 }
 
@@ -906,10 +899,9 @@ int rf_uhd_send_timed(void *h,
         // uhd_tx_metadata_set_end(&handler->tx_md, is_end_of_burst);
       }
 
-      void *buff = (void*) &data_c[n];
-      const void **buffs_ptr = (const void**) &buff;
+      // void *buff = (void*) &data_c[n];
+      // const void **buffs_ptr = (const void**) &buff;
       txd_samples = handler->tx_stream_->send(&data_c[n], tx_samples, md, 3.0);
-      std::cout << boost::format("n=%d, txd_sample=%d, namples=%d")% n  % txd_samples% nsamples << std::endl;
       // uhd_error error = uhd_tx_streamer_send(handler->tx_stream, buffs_ptr,
       //     tx_samples, &handler->tx_md, 3.0, &txd_samples);
       // if (error) {
@@ -923,10 +915,9 @@ int rf_uhd_send_timed(void *h,
 
       n += txd_samples;
       trials++;
-    } while (n < nsamples && trials < 100);
+    } while (n < (unsigned int) nsamples && trials < 100);
     return nsamples;
   } else {
-    std::cout << boost::format("Transmission not blocked ... ")<< std::endl;
     md.start_of_burst = is_start_of_burst;
     md.end_of_burst = is_end_of_burst;
     txd_samples = handler->tx_stream_->send(&data_c[0], nsamples, md, 0.0);
