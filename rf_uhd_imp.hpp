@@ -10,19 +10,27 @@ public:
   std::string args_;
   std::string radio_args_;
   size_t radio_id_;
+  size_t radio_ss_id_;
   size_t radio_chan_;
+  size_t radio_ss_chan_;
   uhd::device3::sptr usrp_;
 
   uhd::rfnoc::block_id_t radio_ctrl_id_;
   uhd::rfnoc::radio_ctrl::sptr radio_ctrl_;
+  uhd::rfnoc::block_id_t radio_ss_ctrl_id_;
+  uhd::rfnoc::radio_ctrl::sptr radio_ss_ctrl_;
 
   //uhd::rfnoc::block_id_t ddc_ctrl_id_; // FIXME: It seem you cannot have two block_id_t
   uhd::rfnoc::source_block_ctrl_base::sptr ddc_ctrl_;
+  uhd::rfnoc::source_block_ctrl_base::sptr ddc_ss_ctrl_;
   uhd::rfnoc::source_block_ctrl_base::sptr duc_ctrl_;
+  uhd::rfnoc::source_block_ctrl_base::sptr specsense_ctrl_;
   
   uhd::rx_streamer::sptr rx_stream_;
+  uhd::rx_streamer::sptr rx_ss_stream_;
   uhd::tx_streamer::sptr tx_stream_;
   uhd::rfnoc::graph::sptr rx_graph_;
+  uhd::rfnoc::graph::sptr rx_ss_graph_;
   uhd::rfnoc::graph::sptr tx_graph_;
 
   char *devname;
