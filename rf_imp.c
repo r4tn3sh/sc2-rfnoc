@@ -30,6 +30,9 @@
 #include "srslte/srslte.h"
 #include "rf_dev.h"
 
+// Global varibale used to exit the AGC thread.
+bool exit_agc_thread = false;
+
 int rf_get_available_devices(char **devnames, int max_strlen) {
   int i=0;
   while(available_devices[i]->name) {
@@ -93,6 +96,28 @@ int srslte_rf_start_gain_thread(srslte_rf_t *rf, bool tx_gain_same_rx) {
   }
   return 0;
 }
+ /* Send signal to finsih and join the thread created to control AGC's gain. */
+int srslte_rf_finish_gain_thread(srslte_rf_t *rf) {
+  void *res;
+  int ret;
+  if (!pthread_kill(rf->thread_gain, 0)) {
+    // Send signal throught global variable to the AGC thread to finish its execution.
+    exit_agc_thread = true;
+    pthread_mutex_lock(&rf->mutex);
+    pthread_cond_signal(&rf->cond);
+    pthread_mutex_unlock(&rf->mutex);
+    ret = pthread_join(rf->thread_gain, &res);
+    if (ret != 0) {
+      perror("pthread_join");
+      return -1;
+    }
+  } else {
+    DEBUG("AGC Thread is not running........\n",0);
+    return -1;
+  }
+  return 0;
+}
+                                                                                         
 
 const char* srslte_rf_get_devname(srslte_rf_t *rf) {
   return ((rf_dev_t*) rf->dev)->name;
@@ -203,6 +228,10 @@ bool srslte_rf_is_master_clock_dynamic(srslte_rf_t *rf)
 double srslte_rf_set_rx_srate(srslte_rf_t *rf, double freq)
 {
   return ((rf_dev_t*) rf->dev)->srslte_rf_set_rx_srate(rf->handler, freq);  
+}
+double srslte_rf_get_rx_srate(srslte_rf_t *rf)
+{
+  return ((rf_dev_t*) rf->dev)->srslte_rf_get_rx_srate(rf->handler);
 }
 
 double srslte_rf_set_rx_gain(srslte_rf_t *rf, double gain)
