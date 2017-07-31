@@ -58,6 +58,7 @@ typedef struct {
   void   (*srslte_rf_set_tx_cal)(void *h, srslte_rf_cal_t *cal);
 
   void   (*srslte_rf_set_rx_cal)(void *h, srslte_rf_cal_t *cal);
+  double (*srslte_rf_get_rx_srate)(void *h);
 
 } rf_dev_t; 
 
